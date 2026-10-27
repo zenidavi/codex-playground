@@ -8,6 +8,7 @@
     "start": "node scripts/serve.mjs",
     "test": "node --test test/engine.test.js test/world.test.js test/sprite-sheet.test.js",
     "test:browser": "node scripts/browser-test.mjs",
+    "test:sprites": "node scripts/test-sprites.mjs",
     "vendor": "node scripts/vendor-three.mjs"
   },
   "engines": {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SHEET_DIRECTIONS, frameRect, walkingFrame, movementDirection } from '../js/sprite-sheet.js';
+import { SHEET_DIRECTIONS, frameRect, walkingFrame, movementDirection, backgroundMask } from '../js/sprite-sheet.js';
 
 test('folha 1024 × 1024 separa exatamente os 16 quadros sem sobreposição', () => {
   const positions = new Set();
@@ -30,4 +30,27 @@ test('o parceiro muda de direção pelo próprio deslocamento e conserva a últi
   assert.equal(movementDirection(0, -1), 'up');
   assert.equal(movementDirection(0, 1), 'down');
   assert.equal(movementDirection(0, 0, 'left'), 'left');
+});
+
+test('ocultar fundo preserva contornos, cores e reflexos claros fechados dentro do sprite', () => {
+  const size = 9;
+  const pixels = new Uint8ClampedArray(size * size * 4).fill(255);
+  const set = (x, y, rgba) => pixels.set(rgba, (y * size + x) * 4);
+  for (let i = 2; i <= 6; i++) {
+    set(i, 2, [30, 30, 30, 255]); set(i, 6, [30, 30, 30, 255]);
+    set(2, i, [30, 30, 30, 255]); set(6, i, [30, 30, 30, 255]);
+  }
+  set(0, 4, [240, 160, 40, 255]);
+  set(1, 1, [190, 195, 197, 255]);
+  const before = new Uint8ClampedArray(pixels);
+  const mask = backgroundMask(pixels, size, size);
+  assert.equal(mask[0], 1); assert.equal(mask[1 * size + 1], 1);
+  assert.equal(mask[2 * size + 2], 0); assert.equal(mask[4 * size + 4], 0);
+  assert.equal(mask[4 * size], 0);
+  assert.deepEqual(pixels, before, 'o arquivo original não é alterado');
+});
+test('máscara atravessa regiões já transparentes e valida o tamanho dos pixels', () => {
+  const pixels = new Uint8ClampedArray(4 * 4 * 4);
+  assert.equal(backgroundMask(pixels, 4, 4).reduce((sum, item) => sum + item, 0), 16);
+  assert.throws(() => backgroundMask(pixels, 5, 5));
 });

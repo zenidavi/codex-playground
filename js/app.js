@@ -4,6 +4,7 @@ import { WorldRenderer } from './world-renderer.js';
 import { START_POSITION, nearestInteraction, terrainAt, locationAt, restoreWorld } from './world-model.js';
 import { spriteURL, trainerArt } from './pixel-art.js';
 import { AudioGuide } from './audio.js';
+import { mountSpriteStudio } from './sprite-studio.js';
 
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'poketrilha.save.v1'; // Preserve the original game's saves.
@@ -19,6 +20,8 @@ let worldData = freshWorld();
 let dialogue = null, interaction = null, walkedDistance = 0, encounterCooldown = 4;
 let lastFrameUpdate = 0, currentLocation = '', toastTimer, regionTimer, storageWarning = false;
 let openStarterAfterReset = false;
+let spriteStudio = null, customCharmanderPortrait = null;
+const portrait = species => species === 'charmander' && customCharmanderPortrait ? customCharmanderPortrait : spriteURL(species);
 
 function toast(message) {
   clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false;
@@ -51,6 +54,7 @@ function openModal(id) {
   if (id === 'bag-dialog') renderBag();
   if (id === 'map-dialog') world?.drawMap($('full-map'));
   $(id).showModal();
+  if (id === 'sprite-dialog') spriteStudio?.open();
 }
 function setHp(target, hp, maxHp) {
   const track = $(`${target}-hp`);
@@ -70,7 +74,7 @@ function setXp(id) {
 function renderWorldHud() {
   if (!game) return;
   const player = game.player;
-  $('companion-image').src = spriteURL(player.species); $('companion-image').alt = nameOf(player);
+  $('companion-image').src = portrait(player.species); $('companion-image').alt = nameOf(player);
   $('companion-name').textContent = nameOf(player); $('companion-level').textContent = `Nv. ${player.level}`;
   setHp('world', player.hp, player.maxHp); setXp('world-xp');
   $('world-xp-label').textContent = player.level === MAX_LEVEL ? 'NÍVEL MÁX.' : `${player.xp}/${xpRequired(player.level)} XP`;
@@ -90,7 +94,7 @@ function renderBag() {
   $('collection-count').textContent = `${game.caught.length + 1} / ${ids.length} registrados`;
   $('collection-list').innerHTML = ids.map(id => {
     const known = id === game.player.species || game.caught.includes(id);
-    return `<div class="collection-card ${known ? '' : 'unknown'}"><img src="${spriteURL(id)}" alt="${known ? SPECIES[id].name : 'Pokémon ainda não capturado'}"><strong>${known ? SPECIES[id].name : '???'}</strong><span>${id === game.player.species ? 'SEU PARCEIRO' : known ? 'CAPTURADO' : 'NÃO REGISTRADO'}</span></div>`;
+    return `<div class="collection-card ${known ? '' : 'unknown'}"><img src="${portrait(id)}" alt="${known ? SPECIES[id].name : 'Pokémon ainda não capturado'}"><strong>${known ? SPECIES[id].name : '???'}</strong><span>${id === game.player.species ? 'SEU PARCEIRO' : known ? 'CAPTURADO' : 'NÃO REGISTRADO'}</span></div>`;
   }).join('');
 }
 function renderBattle() {
@@ -292,6 +296,7 @@ $('capture-button').addEventListener('click', () => void perform('capture'));
 $('flee-button').addEventListener('click', () => void perform('flee'));
 $('return-button').addEventListener('click', returnToWorld);
 $('help-button').addEventListener('click', () => openModal('help-dialog'));
+$('sprite-button').addEventListener('click', () => openModal('sprite-dialog'));
 $('bag-button').addEventListener('click', () => openModal('bag-dialog'));
 $('map-button').addEventListener('click', () => openModal('map-dialog'));
 $('journal-button').addEventListener('click', () => openModal('journal-dialog'));
@@ -369,6 +374,14 @@ try {
   });
   $('title-screen').hidden = false; $('continue-button').hidden = !game;
   if (game) { world.setPartner(game.player.species); $('save-status').textContent = '● Uma história espera por você'; }
+  spriteStudio = mountSpriteStudio({
+    world, getPartner: () => game?.player.species, onMessage: toast,
+    onChanged: sheet => {
+      customCharmanderPortrait = sheet ? sheet.frame('down').toDataURL() : null;
+      document.querySelector('[data-starter="charmander"] img').src = portrait('charmander');
+      if (game) { renderWorldHud(); if ($('bag-dialog').open) renderBag(); }
+    },
+  });
 } catch (error) {
   console.error('Não foi possível iniciar o cenário:', error);
   $('loading-screen').hidden = true; $('graphics-error').hidden = false;

@@ -67,6 +67,8 @@ js/world-renderer.js       Cenas Three.js, iluminação, câmera e efeitos HD-2D
 js/pixel-art.js            Sprites locais de Pokémon, treinador, NPCs e vegetação
 js/sprite-sheet.js         Leitura de folhas 4 × 4 e animação em quatro direções
 js/sprite-assets.js        Registro das folhas de arte externa já disponíveis
+js/sprite-studio.js        Prévia, seleção de arquivo e aplicação de arte local
+js/sprite-storage.js       Persistência das imagens no navegador via IndexedDB
 js/audio.js                Áudio original via Web Audio, ativado pelo jogador
 assets/vendor/             Three.js e licença MIT, para funcionar sem CDN
 scripts/serve.mjs          Servidor estático sem dependências de execução
@@ -82,7 +84,15 @@ O modelo do mapa é compartilhado por colisão, cenário e minimapa. Sprites sã
 
 O carregamento aceita folhas quadradas de 4 colunas × 4 linhas, com linhas na ordem **frente, esquerda, direita, costas**. Os quatro quadros de cada linha formam um ciclo de caminhada a 8 quadros por segundo. O parceiro usa a direção do próprio deslocamento e conserva a última direção ao parar; movimento reduzido mantém o primeiro quadro. As batalhas usam os primeiros quadros de frente e de costas.
 
-Quando o PNG original estiver disponível, coloque-o em `assets/sprites/` e registre seu caminho em `js/sprite-assets.js`, por exemplo `charmander: new URL('../assets/sprites/charmander-walk.png', import.meta.url).href`. A folha é dividida na leitura, com transparência preservada e filtro de pixels nítidos. O arquivo deve ter transparência real: um quadriculado desenhado faz parte da imagem e não é removido pelo carregador. Arquivos ausentes ou inválidos mantêm o visual anterior, com aviso. O registro permanece vazio até existir uma imagem real para integrar; as imagens enviadas apenas como prévia no chat não são incluídas automaticamente no projeto.
+Para disponibilizar uma arte a todos os jogadores, coloque o PNG original em `assets/sprites/` e registre seu caminho em `js/sprite-assets.js`, por exemplo `charmander: new URL('../assets/sprites/charmander-walk.png', import.meta.url).href`. A folha é dividida na leitura, com transparência preservada e filtro de pixels nítidos. Arquivos ausentes ou inválidos mantêm o visual anterior, com aviso. O registro permanece vazio até existir uma imagem real para integrar; as imagens enviadas apenas como prévia no chat não são incluídas automaticamente no projeto.
+
+### Testar sua imagem diretamente no jogo
+
+Clique em **Sprites** no cabeçalho, escolha a imagem baixada do Gemini e confira frente, esquerda, direita e costas na prévia. São aceitos PNG, WebP e JPEG quadrados, de 4 × 4 células, até 2048 × 2048 pixels e 8 MB. Clique em **Aplicar ao Charmander**. Se ele for seu parceiro, a arte passa a aparecer no cenário, no retrato e nas batalhas. Aplicar a arte não troca o parceiro nem reinicia uma aventura com outro inicial.
+
+A opção **Ocultar fundo branco ou quadriculado** esconde, somente na exibição, tons claros e cinzas conectados à borda. Ela preserva o arquivo original e reflexos fechados pelo contorno; se a imagem já tiver transparência correta ou a prévia perder detalhes, desmarque a opção. A imagem é guardada no IndexedDB deste navegador, separadamente do progresso. Se o armazenamento estiver indisponível, é possível testar na sessão, com aviso. **Voltar ao original** remove a personalização. Reiniciar a aventura preserva a arte escolhida.
+
+As imagens selecionadas ficam apenas no navegador do jogador: não são enviadas à nuvem ou ao GitHub. Para publicar uma imagem como visual padrão, ainda é necessário acrescentar o arquivo ao projeto conforme descrito acima.
 
 ## Testar
 
@@ -105,6 +115,14 @@ npm run test:browser
 Em Linux mínimo: `npx playwright install --with-deps chromium` pode exigir permissões administrativas. Para um Chromium já instalado, use `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`. O teste usa renderização gráfica por software quando necessário; esse modo pode demorar mais do que uma GPU real.
 
 O teste inicia e encerra seu próprio servidor. Verifica WebGL 2, seleção, movimento por teclado e toque, encontros na grama, NPCs, mapa, mochila, captura, vitórias, níveis, missão, cura, derrota, fuga, saves, recomeço e caminhos relativos equivalentes ao GitHub Pages. Também verifica layouts de 320, 375 e 768 px. Capturas ficam em `test-results/` (ignorado pelo Git). Qualquer falha encerra o comando com código diferente de zero.
+
+Para verificar especificamente o carregamento de arte do Gemini:
+
+```sh
+npm run test:sprites
+```
+
+Esse teste usa uma folha sintética, inicia seu próprio servidor e verifica arquivos inválidos, limite de tamanho, quatro direções, fundo quadriculado, aplicação no cenário, persistência local, batalha com arte personalizada, restauração do visual original, preservação do progresso, celular e armazenamento bloqueado. Ele não substitui a inspeção visual da imagem do artista. A imagem do Gemini ainda precisa ser selecionada pelo usuário ou adicionada ao repositório.
 
 ### Conferência manual
 
