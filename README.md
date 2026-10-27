@@ -65,6 +65,8 @@ js/data.js                  Espécies, tipos, atributos e golpes
 js/world-model.js          Mapa determinístico, colisão, NPCs e posição
 js/world-renderer.js       Cenas Three.js, iluminação, câmera e efeitos HD-2D
 js/pixel-art.js            Sprites locais de Pokémon, treinador, NPCs e vegetação
+js/sprite-sheet.js         Leitura de folhas 4 × 4 e animação em quatro direções
+js/sprite-assets.js        Registro das folhas de arte externa já disponíveis
 js/audio.js                Áudio original via Web Audio, ativado pelo jogador
 assets/vendor/             Three.js e licença MIT, para funcionar sem CDN
 scripts/serve.mjs          Servidor estático sem dependências de execução
@@ -75,6 +77,12 @@ test/world.test.js         Colisão, acesso aos NPCs/gramados e persistência
 ```
 
 O modelo do mapa é compartilhado por colisão, cenário e minimapa. Sprites são desenhados em baixa resolução e ampliados com filtro de vizinho mais próximo. O terreno, casas, ponte e água são geometria 3D. As sombras do ambiente são armazenadas até a troca de cena; a grama e detalhes usam instâncias para reduzir trabalho gráfico. O pós-processamento combina foco seletivo, brilho suave e gradação de cor, sem etapa de build.
+
+### Integrar novas folhas de sprites
+
+O carregamento aceita folhas quadradas de 4 colunas × 4 linhas, com linhas na ordem **frente, esquerda, direita, costas**. Os quatro quadros de cada linha formam um ciclo de caminhada a 8 quadros por segundo. O parceiro usa a direção do próprio deslocamento e conserva a última direção ao parar; movimento reduzido mantém o primeiro quadro. As batalhas usam os primeiros quadros de frente e de costas.
+
+Quando o PNG original estiver disponível, coloque-o em `assets/sprites/` e registre seu caminho em `js/sprite-assets.js`, por exemplo `charmander: new URL('../assets/sprites/charmander-walk.png', import.meta.url).href`. A folha é dividida na leitura, com transparência preservada e filtro de pixels nítidos. O arquivo deve ter transparência real: um quadriculado desenhado faz parte da imagem e não é removido pelo carregador. Arquivos ausentes ou inválidos mantêm o visual anterior, com aviso. O registro permanece vazio até existir uma imagem real para integrar; as imagens enviadas apenas como prévia no chat não são incluídas automaticamente no projeto.
 
 ## Testar
 

@@ -6,7 +6,7 @@
   "description": "Uma aventura Pokémon de exploração em HD-2D com pixel art e cenário 3D.",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node --test test/engine.test.js test/world.test.js",
+    "test": "node --test test/engine.test.js test/world.test.js test/sprite-sheet.test.js",
     "test:browser": "node scripts/browser-test.mjs",
     "vendor": "node scripts/vendor-three.mjs"
   },

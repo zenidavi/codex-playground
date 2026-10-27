@@ -364,6 +364,7 @@ try {
 try {
   world = new WorldRenderer($('world-canvas'), {
     canMove, onMove, onFrame: updateFrame,
+    onAssetError: toast,
     onError: message => { $('graphics-error-text').textContent = message; $('graphics-error').hidden = false; },
   });
   $('title-screen').hidden = false; $('continue-button').hidden = !game;

@@ -1,6 +1,8 @@
 import * as THREE from '../assets/vendor/three.module.js';
 import { WORLD, START_POSITION, TREES, BUILDINGS, FENCES, NPCS, seededRandom, terrainAt, movePosition } from './world-model.js';
 import { pokemonArt, trainerArt, treeArt, grassArt } from './pixel-art.js';
+import { loadSpriteSheet, walkingFrame, movementDirection } from './sprite-sheet.js';
+import { POKEMON_SHEETS } from './sprite-assets.js';
 
 const textureCache = new WeakMap();
 function texture(canvas) {
@@ -122,6 +124,9 @@ export class WorldRenderer {
     this.walkClock = 0;
     this.frame = 0;
     this.effects = [];
+    this.pokemonSheets = new Map();
+    this.partnerDirection = 'down';
+    this.partnerWalkClock = 0;
     this.worldTrees = [];
     this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -140,6 +145,9 @@ export class WorldRenderer {
     this.createLandscape();
     this.createActors();
     this.createBattle();
+    for (const [species, url] of Object.entries(POKEMON_SHEETS)) {
+      void this.loadPokemonSheet(species, url).catch(() => this.callbacks.onAssetError?.(`Não foi possível carregar a nova arte de ${species}. O visual original foi mantido.`));
+    }
     this.createPostprocessing();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas.parentElement);
@@ -350,15 +358,30 @@ export class WorldRenderer {
     this.partner.position.set(position.x + .8, .405, position.z + .65);
   }
   setPartner(species) {
-    this.partnerSpecies = species; this.partner.material.map = texture(pokemonArt(species)); this.partner.material.needsUpdate = true;
+    this.partnerSpecies = species; this.partnerDirection = 'down'; this.partnerWalkClock = 0;
+    this.partner.material.map = texture(this.pokemonCanvas(species)); this.partner.material.needsUpdate = true;
+  }
+  pokemonCanvas(species, direction = 'down', frame = 0, back = false) {
+    return this.pokemonSheets.get(species)?.frame(direction, frame) || pokemonArt(species, back);
+  }
+  async loadPokemonSheet(species, url) {
+    // Keep the current artwork if downloading/decoding/validating the asset fails.
+    const sheet = await loadSpriteSheet(url);
+    if (this.disposed) return;
+    this.pokemonSheets.set(species, sheet);
+    if (this.partnerSpecies === species) this.partner.material.map = texture(sheet.frame(this.partnerDirection));
+    if (this.battleSpecies?.player === species) this.battlePlayer.material.map = texture(sheet.frame('up'));
+    if (this.battleSpecies?.enemy === species) this.battleEnemy.material.map = texture(sheet.frame('down'));
+    return sheet;
   }
   showWorld() { this.mode = 'world'; this.clearInput(); this.renderer.shadowMap.needsUpdate = true; }
   showBattle(game) {
     this.mode = 'battle'; this.clearInput();
     this.renderer.shadowMap.needsUpdate = true;
-    this.battlePlayer.material.map = texture(pokemonArt(game.player.species, true));
+    this.battleSpecies = { player: game.player.species, enemy: game.enemy.species };
+    this.battlePlayer.material.map = texture(this.pokemonCanvas(game.player.species, 'up', 0, true));
     this.battlePlayer.material.needsUpdate = true;
-    this.battleEnemy.material.map = texture(pokemonArt(game.enemy.species));
+    this.battleEnemy.material.map = texture(this.pokemonCanvas(game.enemy.species));
     this.battleEnemy.material.needsUpdate = true;
     this.battlePlayer.visible = true; this.battleEnemy.visible = true;
     this.battlePlayer.material.opacity = 1; this.battleEnemy.material.opacity = 1;
@@ -460,11 +483,19 @@ export class WorldRenderer {
     this.trainer.position.set(this.position.x, .595 + (moving && !this.reducedMotion ? frame * .025 : 0), this.position.z);
     this.trainerShadow.position.set(this.position.x, .035, this.position.z);
     const partnerDistance = Math.hypot(this.position.x - this.partner.position.x, this.position.z - this.partner.position.z);
+    let partnerMoving = false;
     if (partnerDistance > .95) {
       const follow = 1 - Math.exp(-dt * 4);
-      this.partner.position.x += (this.position.x - this.partner.position.x) * follow;
-      this.partner.position.z += (this.position.z - this.partner.position.z + .25) * follow;
+      const dx = (this.position.x - this.partner.position.x) * follow;
+      const dz = (this.position.z - this.partner.position.z + .25) * follow;
+      partnerMoving = Math.hypot(dx, dz) > .001;
+      this.partnerDirection = movementDirection(dx, dz, this.partnerDirection);
+      if (partnerMoving) this.partnerWalkClock += dt;
+      this.partner.position.x += dx;
+      this.partner.position.z += dz;
     }
+    const partnerFrame = walkingFrame(this.partnerWalkClock, partnerMoving, this.reducedMotion);
+    this.partner.material.map = texture(this.pokemonCanvas(this.partnerSpecies, this.partnerDirection, partnerFrame));
     this.partner.position.y = .405 + (moving && !this.reducedMotion ? Math.abs(Math.sin(this.walkClock * 10)) * .06 : 0);
     this.partnerShadow.position.set(this.partner.position.x, .035, this.partner.position.z);
     this.followPosition.x += (this.position.x - this.followPosition.x) * (1 - Math.exp(-dt * 5));
