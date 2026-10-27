@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f9f3">
+  <meta name="description" content="Escolha seu Pokémon e descubra uma pequena aventura com batalhas por turnos na Pokétrilha.">
+  <title>Pokétrilha — Sua próxima aventura</title>
+  <link rel="icon" href="assets/pokeball.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Pokétrilha, início"><img src="assets/pokeball.svg" width="34" height="34" alt=""><span>poké<span class="brand-light">trilha</span><span class="brand-dot">.</span></span></a>
+      <div class="header-right"><span class="edition"><span class="status-dot"></span> Uma aventura no seu ritmo</span><button id="help-button" class="text-button"><span class="help-icon">?</span> Como jogar</button></div>
+    </header>
+
+    <main>
+      <section id="selection-screen" aria-labelledby="welcome-title">
+        <div class="welcome-grid">
+          <div class="welcome-copy"><span class="eyebrow"><span class="tiny-spark">✦</span> UM NOVO CAPÍTULO COMEÇA AQUI</span><h1 id="welcome-title">Pequenos passos.<br>Grandes <span>aventuras.</span></h1><p>Todo grande treinador começa com um amigo.<br>Escolha seu primeiro Pokémon e siga a trilha.</p><div class="welcome-tags"><span><i class="mini-ball"></i> 3 parceiros iniciais</span><span>→ Batalhas por turnos</span></div></div>
+          <div class="world-card"><img class="world-image" src="assets/meadow.svg" alt="Uma trilha entre colinas verdes, árvores e montanhas sob um céu ensolarado"><div class="world-caption"><span class="location-pin">⌖</span><div><strong>O começo de tudo</strong><span>Rota 01 · Um mundo para descobrir</span></div><span class="world-weather">☀ <span>24°</span></span></div><span class="world-label"><span class="status-dot"></span> A natureza está chamando</span></div>
+        </div>
+        <div class="section-heading"><div><span class="eyebrow">SEU PRIMEIRO COMPANHEIRO</span><h2>Uma escolha. Uma amizade.</h2></div><span class="section-hint">Escolha o Pokémon que combina com você <span>↓</span></span></div>
+        <div id="starter-list" class="starter-grid" role="group" aria-label="Escolha seu Pokémon inicial"></div>
+        <div class="journey-bar"><div class="journey-message"><span class="journey-icon">✧</span><div><strong id="choice-title">Sua história está prestes a começar</strong><span id="choice-description">Um parceiro, muitas possibilidades.</span></div></div><div class="journey-actions"><button id="start-button" class="primary-button" disabled>Escolha seu parceiro <span>→</span></button></div></div>
+        <div class="feature-strip"><span><b>01</b> Escolha seu parceiro</span><i></i><span><b>02</b> Explore e batalhe</span><i></i><span><b>03</b> Cresçam juntos</span><span class="auto-save"><span class="status-dot"></span> Progresso salvo automaticamente</span></div>
+      </section>
+
+      <section id="adventure-screen" aria-labelledby="adventure-title" hidden>
+        <div class="adventure-heading"><div><span class="eyebrow">SUA JORNADA, UM TURNO DE CADA VEZ</span><h1 id="adventure-title">Um encontro na <span>trilha.</span></h1></div><span class="route-tag">⌖ ROTA 01 <span>Prado Verde</span></span></div>
+        <div class="adventure-grid">
+          <div class="battle-column">
+            <div id="battle-scene" class="battle-scene" aria-label="Campo de batalha">
+              <div class="scene-top"><span><span class="status-dot"></span> <span id="scene-status">EXPLORANDO</span></span><span>☀ CÉU LIMPO</span></div>
+              <div id="enemy-hud" class="pokemon-hud enemy-hud" hidden><div class="hud-title"><strong id="enemy-name"></strong><span id="enemy-level"></span></div><div class="hud-sub"><span id="enemy-type" class="type-badge"></span><span>SELVAGEM</span></div><div id="enemy-hp" class="hp-track" role="progressbar" aria-label="HP do adversário" aria-valuemin="0"><span></span></div><div id="enemy-hp-label" class="hp-label"></div></div>
+              <div class="ground enemy-ground"></div><img id="enemy-sprite" class="battle-sprite enemy-sprite" src="assets/pidgey.svg" alt="" hidden><span id="enemy-damage" class="damage-number" aria-hidden="true"></span>
+              <div class="ground player-ground"></div><img id="player-sprite" class="battle-sprite player-sprite" src="assets/bulbasaur.svg" alt=""><span id="player-damage" class="damage-number" aria-hidden="true"></span>
+              <div class="pokemon-hud player-hud"><div class="hud-title"><strong id="player-name"></strong><span id="player-level"></span></div><div id="player-hp" class="hp-track" role="progressbar" aria-label="HP do seu Pokémon" aria-valuemin="0"><span></span></div><div id="player-hp-label" class="hp-label"></div></div>
+              <div id="battle-result" class="battle-result" hidden><span id="result-icon">✦</span><h2 id="result-title"></h2><p id="result-description"></p></div>
+            </div>
+            <div class="battle-console"><div class="console-heading"><div><span class="eyebrow" id="turn-label">PRONTO PARA EXPLORAR?</span><h2 id="action-title">O que vamos descobrir hoje?</h2></div><span class="turn-marker" id="turn-marker">✧</span></div><div id="move-list" class="move-list"></div><div class="utility-actions"><button id="potion-button" class="secondary-button">♧ Usar poção <span id="potion-count">×3</span></button><button id="flee-button" class="text-button">Fugir <span>→</span></button><button id="explore-button" class="primary-button">Explorar gramado <span>→</span></button><button id="rest-button" class="secondary-button">♡ Descansar</button></div><p id="action-feedback" class="action-feedback" role="status"></p></div>
+          </div>
+          <aside class="adventure-sidebar">
+            <section class="companion-panel"><span class="eyebrow">SEU COMPANHEIRO</span><div class="companion-identity"><img id="companion-image" src="assets/bulbasaur.svg" alt=""><div><h2 id="companion-name"></h2><span id="companion-type" class="type-badge"></span></div><span id="companion-level" class="level-bubble"></span></div><div class="xp-heading"><strong>Próximo nível</strong><span id="xp-label"></span></div><div id="xp-track" class="xp-track" role="progressbar" aria-label="Experiência" aria-valuemin="0"><span></span></div><p class="companion-note">Cada encontro é uma chance de crescer.</p><div class="adventure-stats"><div><strong id="wins-count">0</strong><span>vitórias</span></div><div><strong id="encounters-count">0</strong><span>encontros</span></div><div><strong id="level-gain">0</strong><span>níveis ganhos</span></div></div></section>
+            <section class="journal-panel"><div class="journal-heading"><h2>Diário de aventura</h2><span>☷</span></div><ol id="battle-log" class="battle-log" aria-live="polite" aria-relevant="additions"></ol></section>
+            <div class="trail-tip"><span>✧</span><p><strong>Dica de treinador</strong><span id="trainer-tip">Água vence fogo, fogo vence planta e planta vence água. Use os tipos a seu favor!</span></p></div>
+            <button id="reset-button" class="text-button reset-button">↺ Começar uma nova jornada</button>
+          </aside>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer"><span>Feito para quem nunca deixou de ser treinador.</span><span>POKÉTRILHA <span class="footer-spark">✦</span> UM MINI RPG DE FÃ</span></footer>
+  </div>
+  <dialog id="help-dialog"><button class="dialog-close text-button" data-close aria-label="Fechar">×</button><span class="eyebrow">GUIA DE BOLSO</span><h2>Uma aventura simples.<br>Muitas histórias.</h2><ol class="help-steps"><li><b>Escolha um amigo.</b> Bulbasaur, Charmander ou Squirtle começam no nível 5.</li><li><b>Entre no gramado.</b> Encontre Pokémon selvagens e escolha um golpe a cada turno. Seu parceiro ataca primeiro.</li><li><b>Observe os tipos.</b> Golpes eficientes causam o dobro de dano; golpes resistidos causam metade.</li><li><b>Cuide do seu parceiro.</b> Poções recuperam 24 HP e usam um turno. Fugir é garantido. Fora da batalha, descansar recupera todo o HP e suas 3 poções.</li><li><b>Cresçam juntos.</b> Vitórias rendem experiência e uma poção. Ao subir de nível, os atributos aumentam. O limite é nível 20.</li></ol><p class="dialog-note">Seu progresso fica salvo neste navegador. Não é preciso criar conta. Os Pokémon não evoluem nesta miniaventura.</p><button class="primary-button" data-close>Entendi, vamos nessa <span>→</span></button></dialog>
+  <dialog id="reset-dialog"><span class="eyebrow">UM NOVO COMEÇO</span><h2>Recomeçar a aventura?</h2><p>Seu progresso salvo será substituído. Você poderá escolher outro parceiro e começar do nível 5.</p><div class="dialog-actions"><button class="secondary-button" data-close>Continuar minha jornada</button><button id="confirm-reset" class="primary-button">Recomeçar</button></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

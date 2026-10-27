@@ -1,0 +1,18 @@
+{
+  "name": "poketrilha",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Um pequeno RPG Pokémon feito com HTML, CSS e JavaScript.",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test test/engine.test.js",
+    "test:browser": "node scripts/browser-test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}
