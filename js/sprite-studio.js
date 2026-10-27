@@ -1,6 +1,5 @@
 import { loadSpriteFile, walkingFrame } from './sprite-sheet.js';
 import { readSprite, writeSprite, deleteSprite } from './sprite-storage.js';
-import { pokemonArt } from './pixel-art.js';
 import { STARTERS, SPECIES } from './data.js';
 
 export function mountSpriteStudio({ world, onChanged, onMessage, getPartner }) {
@@ -10,7 +9,7 @@ export function mountSpriteStudio({ world, onChanged, onMessage, getPartner }) {
   const states = new Map(STARTERS.map(species => [species, {
     candidate: null, installed: null, source: null, filename: '', generation: 0,
     loading: false, applying: false, hideBackground: true, saved: false,
-    notice: '', error: false, portrait: pokemonArt(species).toDataURL(),
+    notice: '', error: false, portrait: world.defaultPokemonCanvas(species).toDataURL(),
   }]));
   let selected = STARTERS.includes(getPartner()) ? getPartner() : 'charmander';
   let direction = 'down', walking = !reduced, frameId, animationStart = performance.now();
@@ -39,7 +38,7 @@ export function mountSpriteStudio({ world, onChanged, onMessage, getPartner }) {
       const entry = states.get(button.dataset.spriteSpecies);
       button.setAttribute('aria-pressed', String(button.dataset.spriteSpecies === selected));
       button.querySelector('img').src = entry.portrait;
-      button.querySelector('small').textContent = entry.installed ? 'Personalizado' : 'Original';
+      button.querySelector('small').textContent = entry.installed ? 'Personalizado' : 'Padrão do jogo';
     }
   }
   function message(species, text, error = false) {
@@ -56,7 +55,7 @@ export function mountSpriteStudio({ world, onChanged, onMessage, getPartner }) {
     const canvas = $('sprite-preview'), ctx = canvas.getContext('2d'), state = states.get(selected);
     ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.imageSmoothingEnabled = false;
     const frame = walkingFrame((time - animationStart) / 1000, walking, reduced);
-    const art = (state.candidate || state.installed)?.frame(direction, frame) || pokemonArt(selected, direction === 'up');
+    const art = (state.candidate || state.installed)?.frame(direction, frame) || world.defaultPokemonCanvas(selected, direction, frame, direction === 'up');
     ctx.drawImage(art, 0, 0, canvas.width, canvas.height);
     if (dialog.open) frameId = requestAnimationFrame(draw);
   }
@@ -122,11 +121,11 @@ export function mountSpriteStudio({ world, onChanged, onMessage, getPartner }) {
   $('sprite-remove').addEventListener('click', async () => {
     const species = selected, state = states.get(species);
     if (!state.installed || state.loading || state.applying) return;
-    Object.assign(state, { applying: true, installed: null, candidate: null, source: null, filename: '', saved: false, portrait: pokemonArt(species).toDataURL() });
+    Object.assign(state, { applying: true, installed: null, candidate: null, source: null, filename: '', saved: false, portrait: world.defaultPokemonCanvas(species).toDataURL() });
     state.generation++;
     render(); world.removePokemonSheet(species); onChanged(species, null);
     $('sprite-file').value = '';
-    try { await deleteSprite(species); message(species, `O visual original do ${SPECIES[species].name} foi restaurado.`); }
+    try { await deleteSprite(species); message(species, `O visual padrão do ${SPECIES[species].name} foi restaurado.`); }
     catch { message(species, 'Visual original nesta sessão. O navegador não permitiu apagar a imagem salva.'); }
     finally { state.applying = false; if (selected === species) render(); }
   });
@@ -147,6 +146,13 @@ export function mountSpriteStudio({ world, onChanged, onMessage, getPartner }) {
   }));
   return {
     ready,
+    refreshDefaults() {
+      for (const species of STARTERS) {
+        const state = states.get(species);
+        if (!state.installed) state.portrait = world.defaultPokemonCanvas(species).toDataURL();
+      }
+      render();
+    },
     open() {
       cancelAnimationFrame(frameId);
       if (STARTERS.includes(getPartner())) select(getPartner());

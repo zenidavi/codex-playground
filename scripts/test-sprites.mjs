@@ -34,6 +34,37 @@ try {
   const context = await browser.newContext({ viewport: { width: 1100, height: 950 }, reducedMotion: 'reduce' });
   page = await context.newPage(); monitor(page);
   await page.goto(url); await ready(page);
+  await check('as três artes enviadas são padrão, com 16 quadros sem fundo e sem importar imagens', async () => {
+    const result = await page.evaluate(async () => {
+      const { POKEMON_SHEETS } = await import('./js/sprite-assets.js');
+      const { loadSpriteSheet } = await import('./js/sprite-sheet.js');
+      const { readSprite } = await import('./js/sprite-storage.js');
+      const result = {};
+      for (const [species, definition] of Object.entries(POKEMON_SHEETS)) {
+        const response = await fetch(definition.url);
+        const sheet = await loadSpriteSheet(definition.url, definition);
+        let validFrames = 0;
+        for (const direction of ['down', 'left', 'right', 'up']) for (let i = 0; i < 4; i++) {
+          const frame = sheet.frame(direction, i), ctx = frame.getContext('2d');
+          const pixels = ctx.getImageData(0, 0, 64, 64).data;
+          let visible = 0;
+          for (let offset = 3; offset < pixels.length; offset += 4) if (pixels[offset]) visible++;
+          if (pixels[3] === 0 && visible > 50 && visible < 4000) validFrames++;
+        }
+        result[species] = {
+          status: response.status, type: response.headers.get('content-type'), validFrames,
+          portraitMatches: document.querySelector(`[data-starter="${species}"] img`).src === sheet.frame('down').toDataURL(),
+          localImage: !!await readSprite(species),
+        };
+      }
+      return result;
+    });
+    assert.deepEqual(Object.keys(result).sort(), ['bulbasaur', 'charmander', 'squirtle']);
+    for (const species of Object.keys(result)) assert.deepEqual(result[species], { status: 200, type: 'image/png', validFrames: 16, portraitMatches: true, localImage: false }, species);
+    await page.locator('#new-game-button').click();
+    await page.screenshot({ path: `${results}/published-starter-art.png`, fullPage: true });
+    await page.locator('#starter-dialog [data-close]').click();
+  });
   const base64 = await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
     const ctx = canvas.getContext('2d');
@@ -163,6 +194,14 @@ try {
     assert.equal(await page.locator('#sprite-remove').isDisabled(), true);
     const removed = await page.evaluate(async () => (await import('./js/sprite-storage.js')).readSprite());
     assert.equal(removed, undefined);
+    const matchesPublished = await page.evaluate(async () => {
+      const { loadSpriteSheet } = await import('./js/sprite-sheet.js');
+      const { POKEMON_SHEETS } = await import('./js/sprite-assets.js');
+      const definition = POKEMON_SHEETS.charmander;
+      const sheet = await loadSpriteSheet(definition.url, definition);
+      return document.querySelector('[data-starter="charmander"] img').src === sheet.frame('down').toDataURL();
+    });
+    assert.equal(matchesPublished, true, 'restaura o PNG publicado, sem voltar ao desenho procedural');
   });
   await check('os outros dois iniciais restauram arte e batalham; apagar um não afeta o outro', async () => {
     for (const species of ['bulbasaur', 'squirtle']) {
@@ -230,6 +269,22 @@ try {
     await privatePage.waitForFunction(() => document.getElementById('sprite-feedback').textContent.includes('nesta sessão'));
     assert.equal(await privatePage.locator('#sprite-remove').isDisabled(), false);
     await privateContext.close();
+  });
+  await check('batalha e restauração de progresso usam o Charmander padrão sem personalização local', async () => {
+    const defaultContext = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+    const state = startEncounter(createGame('charmander'), () => .1);
+    await defaultContext.addInitScript(state => localStorage.setItem('poketrilha.save.v1', JSON.stringify(state)), state);
+    const defaultPage = await defaultContext.newPage(); monitor(defaultPage);
+    await defaultPage.goto(url); await ready(defaultPage); await defaultPage.locator('#continue-button').click();
+    assert.equal(await defaultPage.locator('#player-name').innerText(), 'Charmander');
+    await defaultPage.screenshot({ path: `${results}/published-charmander-battle.png`, fullPage: true });
+    await defaultPage.locator('[data-move="tackle"]').click();
+    await defaultPage.waitForFunction(() => !document.getElementById('turn-label').textContent.includes('EM ANDAMENTO'));
+    assert.equal(JSON.parse(await gameState(defaultPage)).turn, 1);
+    await defaultPage.locator('#sprite-button').click();
+    assert.equal(await defaultPage.locator('#sprite-remove').isDisabled(), true);
+    assert.equal(await defaultPage.locator('[data-sprite-species="charmander"] small').innerText(), 'Padrão do jogo');
+    await defaultContext.close();
   });
   assert.deepEqual(errors, []);
   console.log(`\n${count} cenários de sprites passaram, sem erros JavaScript.`);

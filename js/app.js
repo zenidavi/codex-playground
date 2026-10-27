@@ -1,10 +1,10 @@
 import { SPECIES, STARTERS, WILD, TYPES, MAX_LEVEL, movesFor } from './data.js';
 import { createGame, startEncounter, takeTurn, rest, restoreGame, xpRequired } from './engine.js';
-import { WorldRenderer } from './world-renderer.js';
+import { WorldRenderer } from './world-renderer.js?v=default-art-1';
 import { START_POSITION, nearestInteraction, terrainAt, locationAt, restoreWorld } from './world-model.js';
 import { spriteURL, trainerArt } from './pixel-art.js';
 import { AudioGuide } from './audio.js';
-import { mountSpriteStudio } from './sprite-studio.js';
+import { mountSpriteStudio } from './sprite-studio.js?v=default-art-1';
 
 const $ = id => document.getElementById(id);
 const SAVE_KEY = 'poketrilha.save.v1'; // Preserve the original game's saves.
@@ -22,7 +22,13 @@ let lastFrameUpdate = 0, currentLocation = '', toastTimer, regionTimer, storageW
 let openStarterAfterReset = false;
 let spriteStudio = null;
 const customPortraits = new Map();
-const portrait = species => customPortraits.get(species) || spriteURL(species);
+const defaultPortraits = new Map();
+const portrait = species => customPortraits.get(species) || defaultPortraits.get(species) || spriteURL(species);
+
+function refreshPortrait(species) {
+  document.querySelector(`[data-starter="${species}"] img`).src = portrait(species);
+  if (game) { renderWorldHud(); if ($('bag-dialog').open) renderBag(); }
+}
 
 function toast(message) {
   clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false;
@@ -251,7 +257,7 @@ function onMove(position, distance) {
   if (terrainAt(position.x, position.z) === 'tall-grass' && Math.random() < .23) void encounter();
 }
 function updateFrame(position) {
-  if (!$('game-viewport').dataset.ready) { $('game-viewport').dataset.ready = 'true'; $('loading-screen').hidden = true; }
+  if (world?.spritesReady && !$('game-viewport').dataset.ready) { $('game-viewport').dataset.ready = 'true'; $('loading-screen').hidden = true; }
   if (!active || mode !== 'world' || performance.now() - lastFrameUpdate < 160) return;
   lastFrameUpdate = performance.now();
   const location = locationAt(position);
@@ -371,6 +377,10 @@ try {
   world = new WorldRenderer($('world-canvas'), {
     canMove, onMove, onFrame: updateFrame,
     onAssetError: toast,
+    onDefaultSprite: (species, sheet) => {
+      defaultPortraits.set(species, sheet.frame('down').toDataURL());
+      refreshPortrait(species); spriteStudio?.refreshDefaults();
+    },
     onError: message => { $('graphics-error-text').textContent = message; $('graphics-error').hidden = false; },
   });
   $('title-screen').hidden = false; $('continue-button').hidden = !game;
@@ -380,8 +390,7 @@ try {
     onChanged: (species, sheet) => {
       if (sheet) customPortraits.set(species, sheet.frame('down').toDataURL());
       else customPortraits.delete(species);
-      document.querySelector(`[data-starter="${species}"] img`).src = portrait(species);
-      if (game) { renderWorldHud(); if ($('bag-dialog').open) renderBag(); }
+      refreshPortrait(species);
     },
   });
 } catch (error) {

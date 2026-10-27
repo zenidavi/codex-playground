@@ -1,5 +1,7 @@
-// Register only files that actually exist, e.g.:
-// charmander: new URL('../assets/sprites/charmander-walk.png', import.meta.url).href
-// Sheets use four columns and rows ordered down / left / right / up.
-// Keep the procedural sprites until the original artist-provided PNG is available.
-export const POKEMON_SHEETS = Object.freeze({});
+// Original PNGs uploaded by the user. Hide the baked background only at runtime.
+// Four columns; rows ordered down / left / right / up.
+export const POKEMON_SHEETS = Object.freeze({
+  bulbasaur: Object.freeze({ url: new URL('../assets/sprites/bulbasaur-walk.png', import.meta.url).href, hideBackground: true }),
+  charmander: Object.freeze({ url: new URL('../assets/sprites/charmander-walk.png', import.meta.url).href, hideBackground: true }),
+  squirtle: Object.freeze({ url: new URL('../assets/sprites/squirtle-walk.png', import.meta.url).href, hideBackground: true }),
+});

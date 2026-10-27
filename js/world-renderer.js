@@ -2,7 +2,7 @@ import * as THREE from '../assets/vendor/three.module.js';
 import { WORLD, START_POSITION, TREES, BUILDINGS, FENCES, NPCS, seededRandom, terrainAt, movePosition } from './world-model.js';
 import { pokemonArt, trainerArt, treeArt, grassArt } from './pixel-art.js';
 import { loadSpriteSheet, walkingFrame, movementDirection } from './sprite-sheet.js';
-import { POKEMON_SHEETS } from './sprite-assets.js';
+import { POKEMON_SHEETS } from './sprite-assets.js?v=default-art-1';
 
 const textureCache = new WeakMap();
 function texture(canvas) {
@@ -125,6 +125,9 @@ export class WorldRenderer {
     this.frame = 0;
     this.effects = [];
     this.pokemonSheets = new Map();
+    this.defaultPokemonSheets = new Map();
+    this.customPokemonSpecies = new Set();
+    this.spritesReady = false;
     this.partnerDirection = 'down';
     this.partnerWalkClock = 0;
     this.worldTrees = [];
@@ -145,9 +148,17 @@ export class WorldRenderer {
     this.createLandscape();
     this.createActors();
     this.createBattle();
-    for (const [species, url] of Object.entries(POKEMON_SHEETS)) {
-      void this.loadPokemonSheet(species, url).catch(() => this.callbacks.onAssetError?.(`Não foi possível carregar a nova arte de ${species}. O visual original foi mantido.`));
-    }
+    const assets = Object.entries(POKEMON_SHEETS);
+    this.assetsReady = Promise.allSettled(assets.map(([species, entry]) => {
+      const definition = typeof entry === 'string' ? { url: entry } : entry;
+      return this.loadPokemonSheet(species, definition.url, definition);
+    })).then(results => {
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') this.callbacks.onAssetError?.(`Não foi possível carregar a arte de ${assets[index][0]}. O visual anterior foi mantido.`);
+      });
+      this.spritesReady = true;
+      return results;
+    });
     this.createPostprocessing();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas.parentElement);
@@ -364,11 +375,20 @@ export class WorldRenderer {
   pokemonCanvas(species, direction = 'down', frame = 0, back = false) {
     return this.pokemonSheets.get(species)?.frame(direction, frame) || pokemonArt(species, back);
   }
-  async loadPokemonSheet(species, url) {
+  defaultPokemonCanvas(species, direction = 'down', frame = 0, back = false) {
+    return this.defaultPokemonSheets.get(species)?.frame(direction, frame) || pokemonArt(species, back);
+  }
+  async loadPokemonSheet(species, url, options) {
     // Keep the current artwork if downloading/decoding/validating the asset fails.
-    const sheet = await loadSpriteSheet(url);
+    const sheet = await loadSpriteSheet(url, options);
     if (this.disposed) return;
-    this.installPokemonSheet(species, sheet);
+    const previous = this.defaultPokemonSheets.get(species);
+    this.defaultPokemonSheets.set(species, sheet);
+    if (!this.customPokemonSpecies.has(species)) {
+      this.pokemonSheets.set(species, sheet); this.refreshPokemonArt(species);
+    }
+    this.callbacks.onDefaultSprite?.(species, sheet);
+    if (previous !== sheet) this.releasePokemonSheet(previous);
     return sheet;
   }
   refreshPokemonArt(species) {
@@ -382,12 +402,18 @@ export class WorldRenderer {
   }
   installPokemonSheet(species, sheet) {
     const previous = this.pokemonSheets.get(species);
+    this.customPokemonSpecies.add(species);
     this.pokemonSheets.set(species, sheet); this.refreshPokemonArt(species);
-    if (previous !== sheet) this.releasePokemonSheet(previous);
+    if (previous !== sheet && previous !== this.defaultPokemonSheets.get(species)) this.releasePokemonSheet(previous);
   }
   removePokemonSheet(species) {
     const previous = this.pokemonSheets.get(species);
-    this.pokemonSheets.delete(species); this.refreshPokemonArt(species); this.releasePokemonSheet(previous);
+    this.customPokemonSpecies.delete(species);
+    const original = this.defaultPokemonSheets.get(species);
+    if (original) this.pokemonSheets.set(species, original);
+    else this.pokemonSheets.delete(species);
+    this.refreshPokemonArt(species);
+    if (previous !== original) this.releasePokemonSheet(previous);
   }
   showWorld() { this.mode = 'world'; this.clearInput(); this.renderer.shadowMap.needsUpdate = true; }
   showBattle(game) {

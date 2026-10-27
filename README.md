@@ -2,6 +2,8 @@
 
 Uma pequena aventura Pokémon de exploração, em português, com visual **inspirado no HD-2D**: personagens e árvores em pixel art original, cenário 3D, câmera ortográfica inclinada, sombras, luz de fim de tarde, água animada, partículas e pós-processamento de foco, brilho e vinheta.
 
+As folhas de **Bulbasaur, Charmander e Squirtle já estão incluídas no projeto e são o visual padrão para todos os jogadores**. Elas são carregadas automaticamente na escolha do inicial, no mapa, nos retratos e nas batalhas. Não é necessário importar imagens pelo painel Sprites. Seu progresso salvo continua funcionando.
+
 ## Jogar no navegador
 
 **[Abrir o jogo no GitHub Pages](https://zenidavi.github.io/codex-playground/)**
@@ -69,6 +71,7 @@ js/sprite-sheet.js         Leitura de folhas 4 × 4 e animação em quatro dire�
 js/sprite-assets.js        Registro das folhas de arte externa já disponíveis
 js/sprite-studio.js        Prévia, seleção de arquivo e aplicação de arte local
 js/sprite-storage.js       Persistência das imagens no navegador via IndexedDB
+assets/sprites/            PNGs dos três iniciais enviados pelo usuário
 js/audio.js                Áudio original via Web Audio, ativado pelo jogador
 assets/vendor/             Three.js e licença MIT, para funcionar sem CDN
 scripts/serve.mjs          Servidor estático sem dependências de execução
@@ -84,7 +87,9 @@ O modelo do mapa é compartilhado por colisão, cenário e minimapa. Sprites sã
 
 O carregamento aceita folhas quadradas de 4 colunas × 4 linhas, com linhas na ordem **frente, esquerda, direita, costas**. Os quatro quadros de cada linha formam um ciclo de caminhada a 8 quadros por segundo. O parceiro usa a direção do próprio deslocamento e conserva a última direção ao parar; movimento reduzido mantém o primeiro quadro. As batalhas usam os primeiros quadros de frente e de costas.
 
-Para disponibilizar uma arte a todos os jogadores, coloque o PNG original em `assets/sprites/` e registre seu caminho em `js/sprite-assets.js`, por exemplo `charmander: new URL('../assets/sprites/charmander-walk.png', import.meta.url).href`. A folha é dividida na leitura, com transparência preservada e filtro de pixels nítidos. Arquivos ausentes ou inválidos mantêm o visual anterior, com aviso. O registro permanece vazio até existir uma imagem real para integrar; as imagens enviadas apenas como prévia no chat não são incluídas automaticamente no projeto.
+Os três PNGs originais estão em `assets/sprites/`, registrados em `js/sprite-assets.js`. Cada registro contém `url` e `hideBackground: true`: os arquivos enviados possuem fundo branco ou quadriculado desenhado. O carregador oculta esse fundo somente na exibição, preservando os PNGs originais. A escolha de inicial aguarda o carregamento das artes para não mostrar o visual antigo enquanto elas chegam. Arquivos ausentes ou inválidos mantêm o desenho de reserva, com aviso, sem impedir o jogo.
+
+Para trocar o padrão em futuras atualizações, substitua o PNG correspondente e mantenha a grade de 4 × 4. As artes padrão são compartilhadas por todos; personalizações locais continuam tendo preferência e podem ser removidas pelo botão **Usar padrão do jogo**.
 
 ### Testar sua imagem diretamente no jogo
 
@@ -92,7 +97,7 @@ Clique em **Sprites** no cabeçalho, selecione **Bulbasaur, Charmander ou Squirt
 
 Cada um dos três iniciais tem uma imagem, uma prévia e uma configuração de fundo independentes. É possível preparar as três folhas sem substituir uma pela outra. A imagem do Charmander salva na versão anterior é preservada automaticamente, usando a mesma chave no IndexedDB. Trocar de inicial durante o carregamento mantém cada arquivo associado ao Pokémon correto.
 
-A opção **Ocultar fundo branco ou quadriculado** esconde, somente na exibição, tons claros e cinzas conectados à borda. Ela preserva o arquivo original e reflexos fechados pelo contorno; se a imagem já tiver transparência correta ou a prévia perder detalhes, desmarque a opção. As imagens são guardadas no IndexedDB deste navegador, separadamente do progresso. Se o armazenamento estiver indisponível, é possível testar na sessão, com aviso. **Voltar ao original** remove somente a personalização do inicial selecionado. Reiniciar a aventura preserva as três artes escolhidas.
+A opção **Ocultar fundo branco ou quadriculado** esconde, somente na exibição, tons claros e cinzas conectados à borda. Ela preserva o arquivo original e reflexos fechados pelo contorno; se a imagem já tiver transparência correta ou a prévia perder detalhes, desmarque a opção. As imagens são guardadas no IndexedDB deste navegador, separadamente do progresso. Se o armazenamento estiver indisponível, é possível testar na sessão, com aviso. **Usar padrão do jogo** remove somente a personalização do inicial selecionado e restaura o PNG publicado, em vez do antigo desenho de reserva. Reiniciar a aventura preserva as três artes escolhidas.
 
 As imagens selecionadas ficam apenas no navegador do jogador: não são enviadas à nuvem ou ao GitHub. Para publicar uma imagem como visual padrão, ainda é necessário acrescentar o arquivo ao projeto conforme descrito acima.
 
@@ -124,7 +129,7 @@ Para verificar especificamente o carregamento de arte do Gemini:
 npm run test:sprites
 ```
 
-Esse teste usa folhas sintéticas distintas, inicia seu próprio servidor e verifica arquivos inválidos, limite de tamanho, quatro direções, fundo quadriculado, aplicação no cenário, persistência individual dos três iniciais, compatibilidade com o Charmander antigo, troca durante o carregamento, batalha com cada arte personalizada, restauração individual do visual original, preservação do progresso, celular e armazenamento bloqueado. Ele não substitui a inspeção visual da imagem do artista. As imagens do Gemini ainda precisam ser selecionadas pelo usuário ou adicionadas ao repositório.
+Esse teste verifica primeiro os três PNGs reais publicados: carregamento HTTP, retratos automáticos e transparência dos 48 quadros. Depois usa folhas sintéticas distintas para testar arquivos inválidos, limite de tamanho, quatro direções, fundo quadriculado, aplicação no cenário, persistência individual, compatibilidade com o Charmander antigo, troca durante o carregamento, batalhas personalizadas, retorno ao PNG padrão, preservação do progresso, celular e armazenamento bloqueado. Também verifica batalha e retomada do progresso com a arte padrão, sem imagens no IndexedDB. As capturas permitem revisar tanto as artes reais quanto a interface de personalização.
 
 ### Conferência manual
 
@@ -149,4 +154,4 @@ npm run test:browser
 
 Inclua os módulos atualizados de `assets/vendor/` no commit junto do lockfile. A licença MIT de Three.js é preservada em `assets/vendor/LICENSE`.
 
-Projeto de fã, sem afiliação à Nintendo, Game Freak ou The Pokémon Company. Pokémon e nomes relacionados pertencem a seus respectivos titulares. Cenários, sprites em pixel art e motivos sonoros desta versão são gerados localmente pelo projeto.
+Projeto de fã, sem afiliação à Nintendo, Game Freak ou The Pokémon Company. Pokémon e nomes relacionados pertencem a seus respectivos titulares. As folhas PNG dos iniciais foram fornecidas pelo usuário. Cenários, sprites auxiliares e motivos sonoros são gerados localmente pelo projeto.
