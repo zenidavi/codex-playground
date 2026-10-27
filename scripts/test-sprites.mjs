@@ -89,6 +89,55 @@ try {
     finally { await page.keyboard.up('w'); }
     assert.equal(JSON.parse(await gameState(page)).player.species, 'charmander');
   });
+  await check('Bulbasaur e Squirtle têm arquivos independentes, inclusive ao trocar durante o carregamento', async () => {
+    const before = await gameState(page);
+    await page.locator('#sprite-button').click();
+    assert.equal(await page.locator('[data-sprite-species]').count(), 3);
+    const files = {};
+    for (const [species, color] of [['bulbasaur', [70, 180, 90]], ['squirtle', [60, 120, 210]]]) {
+      const encoded = await page.evaluate(color => {
+        const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 256, 256);
+        for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) {
+          ctx.fillStyle = '#202020'; ctx.fillRect(col * 64 + 16, row * 64 + 12, 32, 44);
+          ctx.fillStyle = `rgb(${color.join(',')})`; ctx.fillRect(col * 64 + 18, row * 64 + 14, 28, 40);
+        }
+        return canvas.toDataURL().split(',')[1];
+      }, color);
+      files[species] = { name: `${species}-test.png`, mimeType: 'image/png', buffer: Buffer.from(encoded, 'base64') };
+    }
+    await page.locator('[data-sprite-species="bulbasaur"]').click();
+    await page.locator('#sprite-file').setInputFiles(files.bulbasaur);
+    await page.locator('[data-sprite-species="squirtle"]').click();
+    assert.match(await page.locator('#sprite-selected-name').innerText(), /Squirtle/);
+    await page.locator('#sprite-file').setInputFiles(files.squirtle); await settled(page);
+    await page.locator('#sprite-apply').click();
+    await page.waitForFunction(() => document.getElementById('sprite-feedback').textContent.startsWith('Aplicado'));
+    await page.locator('[data-sprite-species="bulbasaur"]').click(); await settled(page);
+    assert.match(await page.locator('#sprite-file-info').innerText(), /bulbasaur-test/);
+    await page.locator('#sprite-apply').click();
+    await page.waitForFunction(() => document.getElementById('sprite-feedback').textContent.startsWith('Aplicado'));
+    assert.equal(await gameState(page), before, 'aplicar arte a outro inicial não altera a aventura atual');
+    const records = await page.evaluate(async () => {
+      const { readSprite, writeSprite } = await import('./js/sprite-storage.js');
+      const { loadSpriteFile } = await import('./js/sprite-sheet.js');
+      const result = {};
+      for (const species of ['bulbasaur', 'charmander', 'squirtle']) {
+        const record = await readSprite(species), sheet = await loadSpriteFile(record.blob, { hideBackground: record.hideBackground });
+        result[species] = { filename: record.filename, center: [...sheet.frame('down').getContext('2d').getImageData(32, 32, 1, 1).data] };
+      }
+      // Compatibility: the original Charmander record had no species metadata.
+      const legacy = await readSprite(); delete legacy.species; await writeSprite(legacy);
+      return result;
+    });
+    assert.deepEqual(records.bulbasaur.center, [70, 180, 90, 255]);
+    assert.deepEqual(records.squirtle.center, [60, 120, 210, 255]);
+    assert.deepEqual(records.charmander.center, [180, 70, 40, 255]);
+    assert.equal(records.bulbasaur.filename, files.bulbasaur.name);
+    assert.equal(records.squirtle.filename, files.squirtle.name);
+    await page.screenshot({ path: `${results}/sprite-studio-starters.png`, fullPage: true });
+    await page.locator('#sprite-dialog [data-close]').click();
+  });
   await check('recarregar restaura a arte e o combate continua funcionando com ela', async () => {
     const state = startEncounter(createGame('charmander'), () => .1);
     await page.addInitScript(state => {
@@ -115,10 +164,50 @@ try {
     const removed = await page.evaluate(async () => (await import('./js/sprite-storage.js')).readSprite());
     assert.equal(removed, undefined);
   });
+  await check('os outros dois iniciais restauram arte e batalham; apagar um não afeta o outro', async () => {
+    for (const species of ['bulbasaur', 'squirtle']) {
+      const state = startEncounter(createGame(species), () => .1);
+      await page.addInitScript(({ species, state }) => {
+        const token = `sprite-test-battle-${species}`;
+        if (sessionStorage.getItem(token)) return;
+        sessionStorage.setItem(token, 'true'); localStorage.setItem('poketrilha.save.v1', JSON.stringify(state));
+      }, { species, state });
+      await page.reload(); await ready(page); await page.locator('#continue-button').click();
+      await page.locator('#sprite-button').click();
+      assert.equal(await page.locator(`[data-sprite-species="${species}"]`).getAttribute('aria-pressed'), 'true');
+      await page.waitForFunction(species => document.getElementById('sprite-file-info').textContent.includes(`${species}-test.png`), species);
+      assert.equal(await page.locator('#sprite-remove').isDisabled(), false);
+      await page.locator('#sprite-dialog [data-close]').click();
+      await page.locator('[data-move="tackle"]').click();
+      await page.waitForFunction(() => !document.getElementById('turn-label').textContent.includes('EM ANDAMENTO'));
+      assert.equal(JSON.parse(await gameState(page)).turn, 1);
+      const color = await page.evaluate(async () => {
+        const image = document.getElementById('companion-image'); await image.decode();
+        const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+        const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0, 64, 64);
+        return [...ctx.getImageData(32, 32, 1, 1).data];
+      });
+      assert.deepEqual(color, species === 'bulbasaur' ? [70, 180, 90, 255] : [60, 120, 210, 255]);
+    }
+    await page.locator('#sprite-button').click();
+    await page.locator('[data-sprite-species="bulbasaur"]').click();
+    await page.locator('#sprite-remove').click();
+    await page.waitForFunction(() => document.getElementById('sprite-feedback').textContent.includes('foi restaurado'));
+    const status = await page.evaluate(async () => {
+      const { readSprite } = await import('./js/sprite-storage.js');
+      return { bulbasaur: !!await readSprite('bulbasaur'), squirtle: !!await readSprite('squirtle'), charmander: !!await readSprite('charmander') };
+    });
+    assert.deepEqual(status, { bulbasaur: false, squirtle: true, charmander: false });
+    await page.locator('[data-sprite-species="squirtle"]').click();
+    assert.equal(await page.locator('#sprite-remove').isDisabled(), false);
+    await page.locator('#sprite-dialog [data-close]').click();
+  });
   await check('celular carrega a imagem e mantém os controles dentro da janela', async () => {
     const mobileContext = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
     const mobile = await mobileContext.newPage(); monitor(mobile);
     await mobile.goto(url); await ready(mobile); await mobile.locator('#sprite-button').tap();
+    await mobile.locator('[data-sprite-species="bulbasaur"]').tap();
+    assert.equal(await mobile.locator('[data-sprite-species="bulbasaur"]').getAttribute('aria-pressed'), 'true');
     await mobile.locator('#sprite-file').setInputFiles(file); await settled(mobile);
     for (const width of [320, 375]) {
       await mobile.setViewportSize({ width, height: 812 });
@@ -128,6 +217,8 @@ try {
     await mobile.screenshot({ path: `${results}/sprite-studio-mobile.png`, fullPage: true });
     await mobile.locator('#sprite-apply').tap();
     await mobile.waitForFunction(() => document.getElementById('sprite-feedback').textContent.startsWith('Aplicado'));
+    await mobile.locator('[data-sprite-species="squirtle"]').tap();
+    assert.equal(await mobile.locator('#sprite-remove').isDisabled(), true);
     await mobileContext.close();
   });
   await check('sem IndexedDB, a arte funciona na sessão com aviso de persistência', async () => {

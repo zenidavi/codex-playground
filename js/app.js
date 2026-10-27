@@ -20,8 +20,9 @@ let worldData = freshWorld();
 let dialogue = null, interaction = null, walkedDistance = 0, encounterCooldown = 4;
 let lastFrameUpdate = 0, currentLocation = '', toastTimer, regionTimer, storageWarning = false;
 let openStarterAfterReset = false;
-let spriteStudio = null, customCharmanderPortrait = null;
-const portrait = species => species === 'charmander' && customCharmanderPortrait ? customCharmanderPortrait : spriteURL(species);
+let spriteStudio = null;
+const customPortraits = new Map();
+const portrait = species => customPortraits.get(species) || spriteURL(species);
 
 function toast(message) {
   clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false;
@@ -376,9 +377,10 @@ try {
   if (game) { world.setPartner(game.player.species); $('save-status').textContent = '● Uma história espera por você'; }
   spriteStudio = mountSpriteStudio({
     world, getPartner: () => game?.player.species, onMessage: toast,
-    onChanged: sheet => {
-      customCharmanderPortrait = sheet ? sheet.frame('down').toDataURL() : null;
-      document.querySelector('[data-starter="charmander"] img').src = portrait('charmander');
+    onChanged: (species, sheet) => {
+      if (sheet) customPortraits.set(species, sheet.frame('down').toDataURL());
+      else customPortraits.delete(species);
+      document.querySelector(`[data-starter="${species}"] img`).src = portrait(species);
       if (game) { renderWorldHud(); if ($('bag-dialog').open) renderBag(); }
     },
   });

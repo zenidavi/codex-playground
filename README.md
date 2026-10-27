@@ -88,9 +88,11 @@ Para disponibilizar uma arte a todos os jogadores, coloque o PNG original em `as
 
 ### Testar sua imagem diretamente no jogo
 
-Clique em **Sprites** no cabeçalho, escolha a imagem baixada do Gemini e confira frente, esquerda, direita e costas na prévia. São aceitos PNG, WebP e JPEG quadrados, de 4 × 4 células, até 2048 × 2048 pixels e 8 MB. Clique em **Aplicar ao Charmander**. Se ele for seu parceiro, a arte passa a aparecer no cenário, no retrato e nas batalhas. Aplicar a arte não troca o parceiro nem reinicia uma aventura com outro inicial.
+Clique em **Sprites** no cabeçalho, selecione **Bulbasaur, Charmander ou Squirtle**, escolha a imagem correspondente baixada do Gemini e confira frente, esquerda, direita e costas na prévia. São aceitos PNG, WebP e JPEG quadrados, de 4 × 4 células, até 2048 × 2048 pixels e 8 MB. Clique em **Aplicar ao Pokémon selecionado**. Se ele for seu parceiro, a arte passa a aparecer no cenário, no retrato e nas batalhas. Os retratos na escolha de inicial também são atualizados. O painel começa pelo parceiro atual quando existe uma aventura. Escolher um inicial no editor não troca o parceiro nem reinicia o jogo.
 
-A opção **Ocultar fundo branco ou quadriculado** esconde, somente na exibição, tons claros e cinzas conectados à borda. Ela preserva o arquivo original e reflexos fechados pelo contorno; se a imagem já tiver transparência correta ou a prévia perder detalhes, desmarque a opção. A imagem é guardada no IndexedDB deste navegador, separadamente do progresso. Se o armazenamento estiver indisponível, é possível testar na sessão, com aviso. **Voltar ao original** remove a personalização. Reiniciar a aventura preserva a arte escolhida.
+Cada um dos três iniciais tem uma imagem, uma prévia e uma configuração de fundo independentes. É possível preparar as três folhas sem substituir uma pela outra. A imagem do Charmander salva na versão anterior é preservada automaticamente, usando a mesma chave no IndexedDB. Trocar de inicial durante o carregamento mantém cada arquivo associado ao Pokémon correto.
+
+A opção **Ocultar fundo branco ou quadriculado** esconde, somente na exibição, tons claros e cinzas conectados à borda. Ela preserva o arquivo original e reflexos fechados pelo contorno; se a imagem já tiver transparência correta ou a prévia perder detalhes, desmarque a opção. As imagens são guardadas no IndexedDB deste navegador, separadamente do progresso. Se o armazenamento estiver indisponível, é possível testar na sessão, com aviso. **Voltar ao original** remove somente a personalização do inicial selecionado. Reiniciar a aventura preserva as três artes escolhidas.
 
 As imagens selecionadas ficam apenas no navegador do jogador: não são enviadas à nuvem ou ao GitHub. Para publicar uma imagem como visual padrão, ainda é necessário acrescentar o arquivo ao projeto conforme descrito acima.
 
@@ -122,7 +124,7 @@ Para verificar especificamente o carregamento de arte do Gemini:
 npm run test:sprites
 ```
 
-Esse teste usa uma folha sintética, inicia seu próprio servidor e verifica arquivos inválidos, limite de tamanho, quatro direções, fundo quadriculado, aplicação no cenário, persistência local, batalha com arte personalizada, restauração do visual original, preservação do progresso, celular e armazenamento bloqueado. Ele não substitui a inspeção visual da imagem do artista. A imagem do Gemini ainda precisa ser selecionada pelo usuário ou adicionada ao repositório.
+Esse teste usa folhas sintéticas distintas, inicia seu próprio servidor e verifica arquivos inválidos, limite de tamanho, quatro direções, fundo quadriculado, aplicação no cenário, persistência individual dos três iniciais, compatibilidade com o Charmander antigo, troca durante o carregamento, batalha com cada arte personalizada, restauração individual do visual original, preservação do progresso, celular e armazenamento bloqueado. Ele não substitui a inspeção visual da imagem do artista. As imagens do Gemini ainda precisam ser selecionadas pelo usuário ou adicionadas ao repositório.
 
 ### Conferência manual
 
