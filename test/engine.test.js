@@ -158,3 +158,37 @@ test('cada inicial pode completar um encontro com ações válidas', () => {
     }
   }
 });
+
+test('captura de um Pokémon enfraquecido consome bola, entrega XP e encerra sem contra-ataque', () => {
+  const original = encounter('bulbasaur'); original.enemy.hp = 1;
+  const { state, events } = takeTurn(original, 'capture', fixed);
+  assert.equal(state.phase, 'captured'); assert.equal(state.balls, 4); assert.equal(state.turn, 1);
+  assert.equal(state.player.hp, original.player.hp); assert.ok(state.player.xp > 0);
+  assert.deepEqual(state.caught, ['oddish']); assert.equal(state.wins, 0);
+  assert.equal(events[0].kind, 'capture');
+  assert.deepEqual(restoreGame(JSON.stringify(state)), state);
+  assert.equal(startEncounter(state, fixed).phase, 'battle');
+});
+test('captura que falha permite resposta; sem bolas não consome turno', () => {
+  const original = encounter('squirtle');
+  const { state, events } = takeTurn(original, 'capture', () => .99);
+  assert.equal(state.phase, 'battle'); assert.equal(state.balls, 4); assert.equal(state.turn, 1);
+  assert.equal(events[0].kind, 'throw'); assert.equal(events[1].target, 'player');
+  assert.equal(state.enemy.hp, original.enemy.hp); assert.ok(state.player.hp < original.player.hp);
+  original.balls = 0;
+  const invalid = takeTurn(original, 'capture', fixed);
+  assert.equal(invalid.acted, false); assert.deepEqual(invalid.state, original);
+});
+test('coleção é única, itens são repostos e saves anteriores migram sem perder progresso', () => {
+  const original = encounter('charmander'); original.enemy.hp = 1; original.caught = ['oddish'];
+  const captured = takeTurn(original, 'capture', fixed).state;
+  assert.deepEqual(captured.caught, ['oddish']);
+  const recovered = rest(captured); assert.equal(recovered.balls, 5); assert.deepEqual(recovered.caught, ['oddish']);
+  const legacy = createGame('bulbasaur'); delete legacy.balls; delete legacy.caught;
+  const restored = restoreGame(JSON.stringify(legacy)); assert.equal(restored.balls, 5); assert.deepEqual(restored.caught, []);
+  for (const value of [['oddish', 'oddish'], ['unknown'], null]) {
+    const bad = createGame('bulbasaur'); bad.caught = value;
+    assert.equal(restoreGame(JSON.stringify(bad)), null);
+  }
+  const bad = createGame('squirtle'); bad.balls = -1; assert.equal(restoreGame(JSON.stringify(bad)), null);
+});

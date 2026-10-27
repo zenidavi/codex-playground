@@ -9,7 +9,7 @@ export function createPokemon(species, level = 5) {
 }
 export function createGame(starter) {
   if (!STARTERS.includes(starter)) throw new Error('Escolha um inicial válido');
-  return { version: 1, player: createPokemon(starter), enemy: null, phase: 'ready', wins: 0, encounters: 0, potions: 3, turn: 0 };
+  return { version: 1, player: createPokemon(starter), enemy: null, phase: 'ready', wins: 0, encounters: 0, potions: 3, balls: 5, caught: [], turn: 0 };
 }
 const effectiveness = {
   fire: { grass: 2, bug: 2, fire: .5, water: .5 },
@@ -28,7 +28,7 @@ export function calculateDamage(attacker, defender, move, rng = Math.random) {
   return { damage: Math.max(1, Math.floor(base * multiplier * stab * (critical ? 1.5 : 1) * variance)), multiplier, critical };
 }
 export function startEncounter(current, rng = Math.random) {
-  if (!['ready', 'victory', 'escaped'].includes(current.phase) || current.player.hp <= 0) return current;
+  if (!['ready', 'victory', 'escaped', 'captured'].includes(current.phase) || current.player.hp <= 0) return current;
   const state = structuredClone(current);
   const species = WILD[Math.min(WILD.length - 1, Math.floor(rng() * WILD.length))];
   const level = Math.max(3, Math.min(MAX_LEVEL, state.player.level + Math.floor(rng() * 3) - 1));
@@ -62,7 +62,22 @@ export function takeTurn(current, action, rng = Math.random) {
     state.enemy = null;
     return { state, events: [{ kind: 'escape', text: 'Vocês voltaram à trilha em segurança.' }], acted: true };
   }
-  if (action === 'potion') {
+  if (action === 'capture') {
+    if (!state.balls) return invalid('As Poké Bolas acabaram. A enfermeira Clara pode repor sua mochila.');
+    state.balls--;
+    state.turn++;
+    const chance = .25 + (1 - state.enemy.hp / state.enemy.maxHp) * .65;
+    if (rng() < chance) {
+      state.phase = 'captured';
+      if (!state.caught.includes(state.enemy.species)) state.caught.push(state.enemy.species);
+      const xp = state.player.level === MAX_LEVEL ? 0 : state.enemy.level * 5 + 10;
+      const levels = awardExperience(state.player, xp);
+      events.push({ kind: 'capture', text: `${SPECIES[state.enemy.species].name} foi capturado! ${xp ? `+${xp} XP.` : 'Nível máximo alcançado.'}`, xp, levels });
+      if (levels) events.push({ kind: 'level', text: `${SPECIES[state.player.species].name} chegou ao nível ${state.player.level}!` });
+      return { state, events, acted: true };
+    }
+    events.push({ kind: 'throw', text: `${SPECIES[state.enemy.species].name} escapou da Poké Bola! Enfraqueça-o para aumentar a chance de captura.` });
+  } else if (action === 'potion') {
     if (!state.potions) return invalid('Suas poções acabaram. Descanse depois da batalha para repor.');
     if (state.player.hp === state.player.maxHp) return invalid('Seu parceiro já está com o HP cheio. Escolha um golpe.');
     const healed = Math.min(24, state.player.maxHp - state.player.hp);
@@ -75,9 +90,9 @@ export function takeTurn(current, action, rng = Math.random) {
     const hit = calculateDamage(state.player, state.enemy, move, rng);
     const damage = Math.min(hit.damage, state.enemy.hp);
     state.enemy.hp -= damage;
-    events.push({ kind: 'attack', target: 'enemy', ...hit, damage, text: `${SPECIES[state.player.species].name} usou ${move.name}: −${damage} HP!${hit.multiplier > 1 ? ' Super eficaz!' : hit.multiplier < 1 ? ' Pouco eficaz…' : ''}${hit.critical ? ' Crítico!' : ''}` });
+    events.push({ kind: 'attack', target: 'enemy', type: move.type, ...hit, damage, text: `${SPECIES[state.player.species].name} usou ${move.name}: −${damage} HP!${hit.multiplier > 1 ? ' Super eficaz!' : hit.multiplier < 1 ? ' Pouco eficaz…' : ''}${hit.critical ? ' Crítico!' : ''}` });
   }
-  state.turn++;
+  if (action !== 'capture') state.turn++;
   if (state.enemy.hp === 0) {
     state.phase = 'victory';
     state.wins++;
@@ -94,7 +109,7 @@ export function takeTurn(current, action, rng = Math.random) {
     const hit = calculateDamage(state.enemy, state.player, move, rng);
     const damage = Math.min(hit.damage, state.player.hp);
     state.player.hp -= damage;
-    events.push({ kind: 'attack', target: 'player', ...hit, damage, text: `${SPECIES[state.enemy.species].name} usou ${move.name}: −${damage} HP!${hit.multiplier > 1 ? ' Super eficaz!' : hit.multiplier < 1 ? ' Pouco eficaz…' : ''}${hit.critical ? ' Crítico!' : ''}` });
+    events.push({ kind: 'attack', target: 'player', type: move.type, ...hit, damage, text: `${SPECIES[state.enemy.species].name} usou ${move.name}: −${damage} HP!${hit.multiplier > 1 ? ' Super eficaz!' : hit.multiplier < 1 ? ' Pouco eficaz…' : ''}${hit.critical ? ' Crítico!' : ''}` });
     if (state.player.hp === 0) {
       state.phase = 'defeat';
       events.push({ kind: 'defeat', text: 'Seu parceiro precisa descansar. Recupere as energias e tente outra vez!' });
@@ -107,6 +122,7 @@ export function rest(current) {
   const state = structuredClone(current);
   state.player.hp = state.player.maxHp;
   state.potions = 3;
+  state.balls = 5;
   state.enemy = null;
   state.phase = 'ready';
   return state;
@@ -117,9 +133,12 @@ export function restoreGame(raw) {
   try {
     const data = JSON.parse(raw);
     if (!data || data.version !== 1 || !STARTERS.includes(data.player?.species)) return null;
-    if (!['ready', 'battle', 'victory', 'defeat', 'escaped'].includes(data.phase)) return null;
+    if (!['ready', 'battle', 'victory', 'defeat', 'escaped', 'captured'].includes(data.phase)) return null;
     for (const key of ['wins', 'encounters', 'potions', 'turn']) if (!Number.isSafeInteger(data[key]) || data[key] < 0) return null;
     if (data.potions > 5 || data.wins > data.encounters) return null;
+    const balls = data.balls === undefined ? 5 : data.balls;
+    const caught = data.caught === undefined ? [] : data.caught;
+    if (!Number.isSafeInteger(balls) || balls < 0 || balls > 5 || !Array.isArray(caught) || caught.length > WILD.length || caught.some(id => !WILD.includes(id)) || new Set(caught).size !== caught.length) return null;
     const rebuild = value => {
       const pokemon = createPokemon(value.species, value.level);
       if (!Number.isInteger(value.hp) || value.hp < 0 || value.hp > pokemon.maxHp) throw new Error('HP inválido');
@@ -130,11 +149,12 @@ export function restoreGame(raw) {
     const enemy = data.enemy ? rebuild(data.enemy) : null;
     if (player.level < 5 || (enemy && enemy.level < 3)) return null;
     if (enemy && !WILD.includes(enemy.species)) return null;
-    if (['battle', 'victory', 'defeat'].includes(data.phase) && !enemy) return null;
+    if (['battle', 'victory', 'defeat', 'captured'].includes(data.phase) && !enemy) return null;
     if (data.phase === 'battle' && (!player.hp || !enemy.hp)) return null;
     if (data.phase === 'victory' && (enemy.hp !== 0 || !player.hp)) return null;
+    if (data.phase === 'captured' && (!enemy.hp || !player.hp || !caught.includes(enemy.species))) return null;
     if (data.phase === 'defeat' ? player.hp !== 0 || !enemy.hp : player.hp === 0) return null;
     if (['ready', 'escaped'].includes(data.phase) && enemy) return null;
-    return { version: 1, player, enemy, phase: data.phase, wins: data.wins, encounters: data.encounters, potions: data.potions, turn: data.turn };
+    return { version: 1, player, enemy, phase: data.phase, wins: data.wins, encounters: data.encounters, potions: data.potions, balls, caught, turn: data.turn };
   } catch { return null; }
 }
